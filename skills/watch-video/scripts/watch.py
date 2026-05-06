@@ -25,8 +25,10 @@ def main() -> int:
     parser.add_argument("--resolution", type=int, default=512, help="Frame width in px (default: 512)")
     parser.add_argument("--fps", type=float, help="Manual fps override, capped at 2")
     parser.add_argument("--out-dir", help="Working directory to keep outputs")
-    parser.add_argument("--no-whisper", action="store_true", help="Do not call Whisper when captions are unavailable")
-    parser.add_argument("--whisper", choices=["groq", "openai"], help="Force a Whisper provider")
+    parser.add_argument("--no-whisper", action="store_true", help="Do not call transcription fallback when captions are unavailable")
+    parser.add_argument("--whisper", choices=["remote", "groq", "openai"], help="Backward-compatible alias for --transcription-provider")
+    parser.add_argument("--transcription-provider", choices=["remote", "groq", "openai"], help="Force a transcription provider")
+    parser.add_argument("--transcription-language", help="Optional transcription language hint, e.g. pt, en, auto")
     args = parser.parse_args()
 
     max_frames = max(1, min(args.max_frames, 100))
@@ -69,7 +71,10 @@ def main() -> int:
 
     if not segments and not args.no_whisper:
         try:
-            all_segments, backend = transcribe(video, work / "audio.mp3", args.whisper)
+            provider = args.transcription_provider or args.whisper
+            audio_start = start if focused else None
+            audio_end = end if focused else None
+            all_segments, backend = transcribe(video, work / "audio.mp3", provider, args.transcription_language, audio_start, audio_end)
             if all_segments:
                 segments = in_range(all_segments, start, end) if focused else all_segments
                 transcript_source = f"whisper/{backend}"

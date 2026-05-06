@@ -1,0 +1,37 @@
+services:
+  transcriber:
+    build:
+      context: ..
+      dockerfile: server/Dockerfile
+    restart: unless-stopped
+    environment:
+      API_KEY: ${API_KEY:?set API_KEY in server/.env}
+      DEFAULT_MODEL: ${DEFAULT_MODEL:-small-q5_0}
+      WHISPER_MODEL_AUTO_DOWNLOAD: ${WHISPER_MODEL_AUTO_DOWNLOAD:-1}
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-200}
+      MAX_AUDIO_SECONDS: ${MAX_AUDIO_SECONDS:-3600}
+      KEEP_UPLOADS: ${KEEP_UPLOADS:-0}
+      UPLOAD_RETENTION_HOURS: ${UPLOAD_RETENTION_HOURS:-24}
+      WHISPER_THREADS: ${WHISPER_THREADS:-}
+    volumes:
+      - ./models:/models
+      - ./data:/data
+    expose:
+      - "8000"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - transcriber
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:

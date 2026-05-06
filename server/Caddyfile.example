@@ -1,0 +1,12 @@
+transcribe.example.com {
+  request_body {
+    max_size 200MB
+  }
+
+  reverse_proxy transcriber:8000 {
+    transport http {
+      read_timeout 1800s
+      write_timeout 1800s
+    }
+  }
+}

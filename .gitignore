@@ -4,3 +4,7 @@ __pycache__/
 .env
 .pytest_cache/
 dist/
+server/models/*.bin
+server/models/*.tmp
+server/data/
+server/Caddyfile

@@ -13,13 +13,20 @@ from pathlib import Path
 NEEDED = ["ffmpeg", "ffprobe", "yt-dlp"]
 CONFIG_DIR = Path.home() / ".config" / "pi-watch-video"
 CONFIG_FILE = CONFIG_DIR / ".env"
-TEMPLATE = """# pi-watch-video optional Whisper keys
-# Used only when native captions are unavailable.
-# Groq is preferred; OpenAI is fallback.
-# Get keys:
-#   https://console.groq.com/keys
-#   https://platform.openai.com/api-keys
+TEMPLATE = """# pi-watch-video optional transcription settings
+# Native captions are used first when available.
+# Remote is any OpenAI-compatible /v1/audio/transcriptions endpoint.
 
+PI_WATCH_TRANSCRIPTION_ORDER=remote,groq,openai
+PI_WATCH_TRANSCRIPTION_ENDPOINT=
+PI_WATCH_TRANSCRIPTION_API_KEY=
+PI_WATCH_TRANSCRIPTION_MODEL=small
+PI_WATCH_TRANSCRIPTION_LANGUAGE=auto
+PI_WATCH_TRANSCRIPTION_TIMEOUT=1800
+PI_WATCH_TRANSCRIPTION_FALLBACK_ON_BUSY=0
+PI_WATCH_TRANSCRIPTION_PREFLIGHT=1
+
+# Optional hosted fallbacks. Groq is preferred before OpenAI if both are in the order.
 GROQ_API_KEY=
 OPENAI_API_KEY=
 """
@@ -43,7 +50,9 @@ def read_env(name: str) -> str | None:
     return None
 
 
-def whisper_backend() -> str | None:
+def transcription_backend() -> str | None:
+    if read_env("PI_WATCH_TRANSCRIPTION_ENDPOINT") or read_env("TRANSCRIPTION_ENDPOINT"):
+        return "remote"
     if read_env("GROQ_API_KEY"):
         return "groq"
     if read_env("OPENAI_API_KEY"):
@@ -65,19 +74,19 @@ def ensure_config() -> bool:
 
 def status() -> dict:
     missing = missing_bins()
-    backend = whisper_backend()
+    backend = transcription_backend()
     if not missing and backend:
         state = "ready"
     elif missing and not backend:
-        state = "needs_binaries_and_key"
+        state = "needs_binaries_and_transcription_config"
     elif missing:
         state = "needs_binaries"
     else:
-        state = "needs_key"
+        state = "needs_transcription_config"
     return {
         "status": state,
         "missing_binaries": missing,
-        "whisper_backend": backend,
+        "transcription_backend": backend,
         "config_file": str(CONFIG_FILE),
         "platform": platform.system(),
     }
@@ -118,7 +127,7 @@ def check() -> int:
         return 0
     print(f"[pi-watch-video] setup status: {current['status']}", file=sys.stderr)
     print(f"[pi-watch-video] run: python3 {Path(__file__).resolve()} --doctor", file=sys.stderr)
-    if current["missing_binaries"] and not current["whisper_backend"]:
+    if current["missing_binaries"] and not current["transcription_backend"]:
         return 4
     if current["missing_binaries"]:
         return 2
@@ -138,13 +147,16 @@ def doctor() -> int:
             print(f"  {hint}")
     else:
         print("Binaries: ok")
-    if current["whisper_backend"]:
-        print(f"Whisper key: ok ({current['whisper_backend']})")
+    if current["transcription_backend"]:
+        print(f"Transcription fallback: ok ({current['transcription_backend']})")
     else:
-        print("\nNo Whisper key found. Add one to the config if you want audio transcription fallback:")
-        print("  GROQ_API_KEY=...    # preferred")
-        print("  OPENAI_API_KEY=...  # fallback")
-        print("Videos with captions still work without a Whisper key.")
+        print("\nNo transcription fallback configured. Videos with captions still work.")
+        print("For free remote transcription, configure:")
+        print("  PI_WATCH_TRANSCRIPTION_ENDPOINT=https://.../v1/audio/transcriptions")
+        print("  PI_WATCH_TRANSCRIPTION_API_KEY=...")
+        print("Hosted fallbacks:")
+        print("  GROQ_API_KEY=...    # Groq Whisper")
+        print("  OPENAI_API_KEY=...  # OpenAI Whisper")
     return 0 if current["status"] == "ready" else 1
 
 

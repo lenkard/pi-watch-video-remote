@@ -4,10 +4,10 @@
   "description": "Pi package that lets Pi watch videos by extracting frames and transcripts from URLs or local files.",
   "keywords": ["pi-package", "pi", "video", "skills", "yt-dlp", "ffmpeg", "whisper"],
   "license": "MIT",
-  "homepage": "https://github.com/lenkard/pi-watch-video#readme",
+  "homepage": "https://github.com/lenkard/pi-watch-video-remote#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/lenkard/pi-watch-video.git"
+    "url": "https://github.com/lenkard/pi-watch-video-remote.git"
   },
   "pi": {
     "skills": ["./skills"],
