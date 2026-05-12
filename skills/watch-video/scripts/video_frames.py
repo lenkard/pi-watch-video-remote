@@ -52,6 +52,7 @@ def probe(video: str) -> dict:
         "width": video_stream.get("width"),
         "height": video_stream.get("height"),
         "codec": video_stream.get("codec_name"),
+        "has_video": bool(video_stream),
         "has_audio": audio_stream is not None,
     }
 

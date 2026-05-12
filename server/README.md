@@ -2,7 +2,7 @@
 
 OpenAI-compatible transcription endpoint for `pi-watch-video`.
 
-Phase 1 uses `whisper.cpp` and is designed for free Oracle OCI ARM CPU servers. It exposes:
+This server exposes:
 
 - `GET /health`
 - `GET /ready`
@@ -16,7 +16,7 @@ The transcription endpoint accepts OpenAI-style multipart requests and returns `
 ```bash
 cd server
 cp .env.example .env
-# edit API_KEY
+# edit API_KEY and any local-only settings
 nano .env
 docker compose up -d --build
 ```
@@ -46,18 +46,18 @@ curl -s \
 
 ## Configure pi-watch-video
 
-On the machine running Pi:
+On the machine running Pi, configure the private file `~/.config/pi-watch-video/.env`:
 
 ```env
-PI_WATCH_TRANSCRIPTION_ORDER=remote,groq,openai
-PI_WATCH_TRANSCRIPTION_ENDPOINT=https://transcribe.example.com/v1/audio/transcriptions
+PI_WATCH_TRANSCRIPTION_ENDPOINT=https://your-private-endpoint.example/v1/audio/transcriptions
 PI_WATCH_TRANSCRIPTION_API_KEY=your-server-api-key
 PI_WATCH_TRANSCRIPTION_MODEL=small
 PI_WATCH_TRANSCRIPTION_LANGUAGE=auto
 PI_WATCH_TRANSCRIPTION_TIMEOUT=1800
-PI_WATCH_TRANSCRIPTION_FALLBACK_ON_BUSY=0
 PI_WATCH_TRANSCRIPTION_PREFLIGHT=1
 ```
+
+Do not commit endpoint values or API keys. The repository must contain placeholders only.
 
 ## Production exposure
 
@@ -69,13 +69,12 @@ Do not expose the service over public plain HTTP. Use HTTPS plus bearer auth.
 cd server
 cp Caddyfile.example Caddyfile
 # edit transcribe.example.com
-nano Caddyfile
 docker compose -f docker-compose.caddy.yml up -d --build
 ```
 
 ### No domain / no open ports
 
-Use Cloudflare Tunnel and point it at `http://transcriber:8000` or `http://localhost:8000` depending on your setup.
+Use a private network or tunnel and point it at `http://transcriber:8000` or `http://localhost:8000` depending on your setup.
 
 ## Models
 
@@ -105,4 +104,4 @@ Uploads and intermediate files are deleted after each request unless `KEEP_UPLOA
 
 - The server runs one transcription at a time. If busy, it returns HTTP 429.
 - Uploaded audio is normalized to 16kHz mono WAV before `whisper-cli` runs.
-- `faster-whisper`/GPU backends are intentionally not included in Phase 1; they can implement the same OpenAI-compatible API later.
+- Any GPU/local implementation can replace this server if it exposes the same OpenAI-compatible API.

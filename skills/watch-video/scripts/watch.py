@@ -25,9 +25,9 @@ def main() -> int:
     parser.add_argument("--resolution", type=int, default=512, help="Frame width in px (default: 512)")
     parser.add_argument("--fps", type=float, help="Manual fps override, capped at 2")
     parser.add_argument("--out-dir", help="Working directory to keep outputs")
-    parser.add_argument("--no-whisper", action="store_true", help="Do not call transcription fallback when captions are unavailable")
-    parser.add_argument("--whisper", choices=["remote", "groq", "openai"], help="Backward-compatible alias for --transcription-provider")
-    parser.add_argument("--transcription-provider", choices=["remote", "groq", "openai"], help="Force a transcription provider")
+    parser.add_argument("--no-whisper", action="store_true", help="Do not call the configured transcription endpoint when captions are unavailable")
+    parser.add_argument("--whisper", choices=["endpoint", "remote"], help="Deprecated alias; only the configured endpoint is supported")
+    parser.add_argument("--transcription-provider", choices=["endpoint", "remote"], help="Deprecated; only the configured endpoint is supported")
     parser.add_argument("--transcription-language", help="Optional transcription language hint, e.g. pt, en, auto")
     args = parser.parse_args()
 
@@ -56,8 +56,12 @@ def main() -> int:
     focused = start is not None or end is not None
     fps, target = choose_fps(effective_duration, focused, max_frames, args.fps)
 
-    print(f"[pi-watch-video] extracting frames: target≈{target}, fps={fps:.3f}", file=sys.stderr)
-    frames = extract_frames(video, work / "frames", fps, args.resolution, max_frames, start, end)
+    if meta.get("has_video"):
+        print(f"[pi-watch-video] extracting frames: target≈{target}, fps={fps:.3f}", file=sys.stderr)
+        frames = extract_frames(video, work / "frames", fps, args.resolution, max_frames, start, end)
+    else:
+        print("[pi-watch-video] audio-only input: skipping frame extraction", file=sys.stderr)
+        frames = []
 
     transcript_source = None
     segments: list[dict] = []
@@ -93,7 +97,9 @@ def main() -> int:
         print(f"- **Focus:** {human_time(effective_start)} → {human_time(effective_end)} ({effective_duration:.1f}s)")
     if meta.get("width") and meta.get("height"):
         print(f"- **Video:** {meta['width']}x{meta['height']} ({meta.get('codec') or 'unknown codec'})")
-    print(f"- **Frames:** {len(frames)} at {fps:.3f} fps, {args.resolution}px wide")
+    elif not meta.get("has_video"):
+        print("- **Video:** none (audio-only input)")
+    print(f"- **Frames:** {len(frames)}" + (f" at {fps:.3f} fps, {args.resolution}px wide" if frames else ""))
     print(f"- **Transcript:** {len(segments)} segments" + (f" via {transcript_source}" if transcript_source else " (none)"))
     if not focused and duration > 600:
         print("\n> Warning: this video is over 10 minutes, so frame coverage is sparse. Re-run with --start/--end for detailed analysis of a section.")

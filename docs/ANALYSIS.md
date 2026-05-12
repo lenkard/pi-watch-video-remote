@@ -10,7 +10,7 @@ The original project packages a `/watch` workflow for Claude surfaces. It combin
 - helper Python scripts,
 - `yt-dlp` for public video downloads and captions,
 - `ffmpeg`/`ffprobe` for media probing, frame extraction, and audio extraction,
-- optional Groq/OpenAI Whisper transcription fallback,
+- optional transcription through one configured OpenAI-compatible endpoint,
 - Claude multimodal `Read` calls over extracted frame images.
 
 The key insight is that a coding agent does not need native video input if video can be converted into two evidence streams it already understands: images and text.
@@ -24,8 +24,8 @@ After grilling the plan, we chose:
 3. Ship a hybrid foundation: skill now, extension later.
 4. Make the GitHub repo public.
 5. Provide primary `watch-video` skill plus a `watch` prompt helper.
-6. Include captions plus Whisper fallback in v1.
-7. Prefer Groq Whisper, fall back to OpenAI.
+6. Include captions plus endpoint transcription in v1.
+7. Use exactly one user-configured endpoint; do not ship hosted fallback providers.
 8. Make setup instructional only; no automatic package installation.
 9. Use MIT license.
 10. Name the repo `pi-watch-video`.
@@ -53,7 +53,7 @@ The implementation keeps the original workflow but rewrites the code and Pi-faci
 - `media_source.py`: URL/local source resolution and `yt-dlp` invocation.
 - `video_frames.py`: metadata probing, timestamp parsing, automatic frame budget, `ffmpeg` extraction.
 - `transcript.py`: WebVTT parsing, duplicate cleanup, timestamped formatting.
-- `whisper_api.py`: stdlib multipart calls to Groq/OpenAI Whisper endpoints.
+- `whisper_api.py`: stdlib multipart calls to one configured OpenAI-compatible transcription endpoint.
 - `setup.py`: checks dependencies and creates config template; prints install hints only.
 - `watch.py`: orchestration and markdown report output for Pi to consume.
 

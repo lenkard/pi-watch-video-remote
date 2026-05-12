@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -52,6 +53,21 @@ def resolve_local(source: str) -> dict:
     }
 
 
+def _config_value(name: str) -> str | None:
+    if os.environ.get(name):
+        return os.environ[name].strip()
+    config_file = Path.home() / ".config" / "pi-watch-video" / ".env"
+    if not config_file.exists():
+        return None
+    for line in config_file.read_text(encoding="utf-8").splitlines():
+        if not line.strip() or line.lstrip().startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        if key.strip() == name and value.strip():
+            return value.strip().strip('"\'')
+    return None
+
+
 def download_url(url: str, directory: Path) -> dict:
     if shutil.which("yt-dlp") is None:
         raise SystemExit("yt-dlp is missing. Run: python3 scripts/setup.py --doctor")
@@ -70,8 +86,11 @@ def download_url(url: str, directory: Path) -> dict:
         "--sub-format", "vtt",
         "--convert-subs", "vtt",
         "-o", template,
-        url,
     ]
+    cookies = _config_value("PI_WATCH_YTDLP_COOKIES") or _config_value("YTDLP_COOKIES")
+    if cookies:
+        command.extend(["--cookies", cookies])
+    command.append(url)
     result = subprocess.run(command, stdout=sys.stderr, stderr=sys.stderr)
     video = _find_video(directory)
     if video is None:

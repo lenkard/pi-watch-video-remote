@@ -1,179 +1,84 @@
-# Final report: remote transcription deployment plan implemented
+# pi-watch-video 0.2.0 final report
 
 ## Summary
 
-Implemented the planned OpenAI-compatible remote transcription architecture for `pi-watch-video`.
+Version 0.2.0 changes the transcription model from provider fallback chains to a single configured OpenAI-compatible endpoint.
 
-The project now supports:
+The package now:
 
-- Native captions first.
-- Configurable transcription provider priority.
-- Remote OpenAI-compatible transcription endpoint.
-- Existing Groq and OpenAI fallback support.
-- Focused-range transcription for `--start` / `--end`.
-- A Dockerized `whisper.cpp` transcription server intended for Oracle OCI ARM CPU.
-- Production documentation for HTTPS exposure with Caddy or Cloudflare Tunnel.
-
-## Client changes
-
-Updated:
-
-- `skills/watch-video/scripts/watch.py`
-- `skills/watch-video/scripts/whisper_api.py`
-- `skills/watch-video/scripts/setup.py`
-- `skills/watch-video/SKILL.md`
-- `README.md`
-
-Added CLI options:
-
-```bash
---transcription-provider remote|groq|openai
---transcription-language pt
-```
-
-Kept backward compatibility:
-
-```bash
---whisper remote|groq|openai
-```
-
-If both are passed, `--transcription-provider` wins.
+- uses native captions first when they exist,
+- otherwise sends extracted audio only to `PI_WATCH_TRANSCRIPTION_ENDPOINT`,
+- does not contain Groq/OpenAI/local faster-whisper fallback selection,
+- supports audio-only local files,
+- keeps endpoint URLs, IPs, API keys, and `.env` files out of the repository.
 
 ## Configuration
 
-Primary config variables documented:
+Private user config belongs in:
+
+```bash
+~/.config/pi-watch-video/.env
+```
+
+Template:
 
 ```env
-PI_WATCH_TRANSCRIPTION_ORDER=remote,groq,openai
-PI_WATCH_TRANSCRIPTION_ENDPOINT=https://transcribe.example.com/v1/audio/transcriptions
-PI_WATCH_TRANSCRIPTION_API_KEY=your-secret
-PI_WATCH_TRANSCRIPTION_MODEL=small
+PI_WATCH_TRANSCRIPTION_ENDPOINT=
+PI_WATCH_TRANSCRIPTION_API_KEY=
+PI_WATCH_TRANSCRIPTION_MODEL=whisper
 PI_WATCH_TRANSCRIPTION_LANGUAGE=auto
 PI_WATCH_TRANSCRIPTION_TIMEOUT=1800
-PI_WATCH_TRANSCRIPTION_FALLBACK_ON_BUSY=0
 PI_WATCH_TRANSCRIPTION_PREFLIGHT=1
+PI_WATCH_YTDLP_COOKIES=
 ```
 
-Short aliases are accepted. Existing `GROQ_API_KEY` and `OPENAI_API_KEY` still work.
+Do not commit filled config files or local endpoint values.
 
-## Focused transcription
+## Changed files
 
-When `--start` or `--end` is used, the script now extracts only the focused audio range before uploading it to a transcription provider. Returned segment timestamps are offset back to original video time.
+- `skills/watch-video/scripts/whisper_api.py`
+  - Replaced provider-order/fallback code with one endpoint client.
+  - Removed hosted provider constants and local faster-whisper execution path.
+  - Fails fast if the endpoint is missing or returns an error.
 
-This makes the free Oracle ARM CPU path much more practical for long videos.
+- `skills/watch-video/scripts/setup.py`
+  - Doctor now checks for one configured endpoint.
+  - Generated config template no longer includes fallback providers.
 
-## Server added
+- `skills/watch-video/scripts/watch.py`
+  - CLI help now describes the configured endpoint.
+  - Deprecated provider flags accept only `endpoint`/`remote` compatibility aliases.
+  - Audio-only media remains supported.
 
-Added:
+- `skills/watch-video/scripts/media_source.py`
+  - Supports optional private `PI_WATCH_YTDLP_COOKIES` without committing cookies.
 
-```text
-server/
-  Dockerfile
-  docker-compose.yml
-  docker-compose.caddy.yml
-  Caddyfile.example
-  .env.example
-  README.md
-  requirements.txt
-  app/main.py
-```
+- `skills/watch-video/scripts/video_frames.py`
+  - Reports whether media actually has video, allowing audio-only files to skip frame extraction.
 
-The server exposes:
+- `README.md`, `skills/watch-video/SKILL.md`, `server/README.md`, `docs/ANALYSIS.md`
+  - Updated docs to describe the single-endpoint design and security rules.
 
-```http
-GET /health
-GET /ready
-GET /v1/models
-POST /v1/audio/transcriptions
-```
+- `package.json`, `package-lock.json`
+  - Version set to `0.2.0`.
 
-It accepts OpenAI-style multipart upload and supports:
-
-```text
-response_format=verbose_json
-response_format=text
-response_format=json
-```
-
-Unsupported formats return HTTP 400.
-
-## Server backend
-
-Phase 1 backend:
-
-```text
-whisper.cpp via whisper-cli subprocess
-```
-
-Docker builds `whisper.cpp` from a pinned tag.
-
-Default model:
-
-```text
-small-q5_0
-```
-
-Auto-downloads:
-
-```text
-/models/ggml-small-q5_0.bin
-```
-
-Supported aliases:
-
-```text
-small, small-q5_0
-base, base-q5_0
-medium, medium-q5_0
-```
-
-Only the default model auto-downloads. Other model files must be mounted into `server/models/`.
-
-## Server safety defaults
-
-```env
-MAX_UPLOAD_MB=200
-MAX_AUDIO_SECONDS=3600
-MAX_CONCURRENT=1 behavior via semaphore
-KEEP_UPLOADS=0
-```
-
-If busy, the server returns HTTP 429. The client default is not to silently fallback to Groq/OpenAI on 429 unless configured.
-
-Uploads and generated files are deleted by default.
-
-## Production exposure
-
-Documentation recommends HTTPS, not direct public HTTP:
-
-- Caddy with a domain via `docker-compose.caddy.yml`
-- Cloudflare Tunnel when no domain/open port is desired
-
-Bearer-token auth is required by default.
-
-## Validation performed
-
-Ran Python syntax compilation:
+## Tests run
 
 ```bash
-python3 -m py_compile skills/watch-video/scripts/*.py server/app/main.py
+python3 -m py_compile skills/watch-video/scripts/*.py
+python3 skills/watch-video/scripts/setup.py --check
+python3 skills/watch-video/scripts/watch.py /home/coder/SABRINA/watch-test-fixed/audio.mp3 --transcription-language pt --out-dir /tmp/pi-watch-v020-test
+python3 skills/watch-video/scripts/watch.py /tmp/pi-watch-v020-sample.mp4 --transcription-language pt --max-frames 3 --out-dir /tmp/pi-watch-v020-video-test
 ```
 
-Ran CLI/help checks:
+Results:
 
-```bash
-python3 skills/watch-video/scripts/watch.py --help
-python3 skills/watch-video/scripts/setup.py --json
-```
+- Python compile: passed.
+- Setup preflight: passed with private local endpoint config present.
+- Audio-only transcription: passed, transcript source `whisper/endpoint`.
+- Video + frames + transcription: passed, 3 frames extracted and transcript source `whisper/endpoint`.
+- Repository scan: no private endpoint IP, host name, GPU model, API key assignment, or committed `.env` file found.
 
-## Credits
+## Release
 
-The README and skill docs continue to credit Brad Automates' `claude-video` as the inspiration, and `NOTICE.md` remains in place.
-
-## Not included in Phase 1
-
-- Kaggle endpoint implementation.
-- `faster-whisper` GPU backend.
-- Multi-arch image publishing pipeline.
-
-The OpenAI-compatible API makes these straightforward future additions.
+Release tag: `v0.2.0`
