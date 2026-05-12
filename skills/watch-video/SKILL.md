@@ -1,13 +1,13 @@
 ---
 name: watch-video
-description: Watch and analyze a video URL or local video file in Pi. Use when the user provides a video link/path and asks to summarize it, inspect visuals, diagnose a screen recording, or answer questions about what happens in the video.
+description: Watch, transcribe, and analyze a video URL or local video file in Pi. Use when the user provides a video link/path and asks to transcribe audio, extract captions/subtitles, produce a timestamped transcript, summarize it, inspect visuals, diagnose a screen recording, or answer questions about what happens in the video.
 license: MIT
 compatibility: Requires Python 3 plus local ffmpeg/ffprobe and yt-dlp. Optional transcription fallback uses an OpenAI-compatible remote endpoint, GROQ_API_KEY, or OPENAI_API_KEY.
 ---
 
 # Watch Video for Pi
 
-This skill turns a video into inputs Pi can inspect: sampled JPEG frames plus a timestamped transcript. It supports public URLs handled by `yt-dlp` and local video files.
+This skill turns a video into inputs Pi can inspect: sampled JPEG frames plus a timestamped transcript. It supports public URLs handled by `yt-dlp` and local video files. Treat this as the default video transcription skill whenever the user asks to transcribe, caption, subtitle, or extract spoken audio from a video.
 
 ## Workflow
 
