@@ -9,6 +9,7 @@ BROWSER=${BROWSER:-firefox}
 SUB_LANGS=${SUB_LANGS:-en,en-US,en-GB,en-orig}
 OUTPUT_DIR="$JOBS_DIR/$JOB_ID"
 TEMPLATE="$OUTPUT_DIR/source.%(ext)s"
+FALLBACK_SCRIPT=${BROWSER_FETCH_FALLBACK_SCRIPT:-}
 
 mkdir -p "$OUTPUT_DIR" "$PROFILE_DIR"
 
@@ -22,7 +23,7 @@ else
   esac
 fi
 
-yt-dlp \
+if yt-dlp \
   --js-runtimes quickjs \
   --no-playlist \
   --merge-output-format mp4 \
@@ -36,5 +37,18 @@ yt-dlp \
   --cookies-from-browser "$COOKIE_SPEC" \
   -o "$TEMPLATE" \
   "$URL"
+then
+  echo "$OUTPUT_DIR"
+  exit 0
+fi
 
-echo "$OUTPUT_DIR"
+if [ -n "$FALLBACK_SCRIPT" ] && [ -x "$FALLBACK_SCRIPT" ]; then
+  echo "[pi-watch-video] yt-dlp failed, trying browser fallback: $FALLBACK_SCRIPT" >&2
+  rm -rf "$OUTPUT_DIR"
+  mkdir -p "$OUTPUT_DIR"
+  "$FALLBACK_SCRIPT" "$URL" "$OUTPUT_DIR"
+  echo "$OUTPUT_DIR"
+  exit 0
+fi
+
+exit 1

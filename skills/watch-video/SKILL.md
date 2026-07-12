@@ -75,7 +75,7 @@ PI_WATCH_REMOTE_FETCH_CONTAINER=
 PI_WATCH_REMOTE_FETCH_HOST_JOBS_DIR=/opt/pi-watch-video/browser/data/jobs
 ```
 
-The skill SSHes to the browser host, runs `docker exec <container> /usr/local/bin/fetch-url <url> <job-id>`, then rsyncs the fetched `source.*` bundle back.
+The skill SSHes to the browser host, runs `docker exec <container> /usr/local/bin/fetch-url <url> <job-id>`, and that fetch command uses `yt-dlp --cookies-from-browser` against the dedicated Firefox profile as its primary fetch path. An optional browser-native fallback can run second if the container is configured for it. The fetched `source.*` bundle is then rsynced back.
 
 ## Remote processing mode
 

@@ -24,5 +24,6 @@ services:
       WG_AUTO_UP: ${WG_AUTO_UP:-1}
       WG_CONF: /etc/wireguard/wg0.conf
       YTDLP_BROWSER_SPEC: ${YTDLP_BROWSER_SPEC:-}
+      BROWSER_FETCH_FALLBACK_SCRIPT: ${BROWSER_FETCH_FALLBACK_SCRIPT:-}
     ports:
       - "${WG_LISTEN_PORT:-51820}:51820/udp"
