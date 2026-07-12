@@ -43,12 +43,10 @@ Everything runs where the Pi agent runs:
 - `ffprobe`
 - local/private transcription endpoint
 
-### 2) Remote browser fetch fallback
+### 2) Remote browser fetch
 
 Use this when the Pi agent runs in a headless container and cannot reuse a local browser profile.
 
-- URL fetches try local `yt-dlp` first
-- if local fetch fails and `PI_WATCH_FETCH_MODE=remote_browser`, the browser host is used as fallback
 - HTML5 Firefox sidecar keeps a dedicated logged-in profile
 - `yt-dlp --cookies-from-browser` runs inside that same browser container
 - the skill rsyncs the fetched `source.*` bundle back to the agent or onward to a worker
@@ -242,10 +240,9 @@ For the setup discussed here:
 
 1. Pi agent stays on `srvpri`.
 2. `/skill:watch-video URL` runs on the agent.
-3. The skill tries local `yt-dlp` first for URLs.
-4. If local fetch fails and `PI_WATCH_FETCH_MODE=remote_browser`, the skill SSHes to the browser host.
-5. The browser host runs `docker exec <container> /usr/local/bin/fetch-url <url> <job-id>`.
-6. The fetched `source.*` bundle is rsynced back or onward.
+3. If `PI_WATCH_FETCH_MODE=remote_browser`, the skill SSHes to the browser host.
+4. The browser host runs `docker exec <container> /usr/local/bin/fetch-url <url> <job-id>`.
+5. The fetched `source.*` bundle is rsynced back or onward.
 6. If `PI_WATCH_PROCESS_MODE=remote`, the skill rsyncs that bundle to Kinkaid.
 7. Kinkaid runs `process_bundle.py` and returns `result/report.md` plus frames.
 8. Pi reads the local returned frame paths and answers.

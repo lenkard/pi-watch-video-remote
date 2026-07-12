@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import shutil
 import sys
 import tempfile
 from pathlib import Path
@@ -39,17 +38,9 @@ def main() -> int:
     print(f"[pi-watch-video] work dir: {work}", file=sys.stderr)
 
     source_dir = work / "source"
-    if is_url(args.source):
-        try:
-            print("[pi-watch-video] fetching URL with local yt-dlp", file=sys.stderr)
-            stage_source(args.source, source_dir)
-        except SystemExit as exc:
-            if not remote_fetch_enabled():
-                raise
-            print(f"[pi-watch-video] local fetch failed: {exc}", file=sys.stderr)
-            print("[pi-watch-video] falling back to remote browser host", file=sys.stderr)
-            shutil.rmtree(source_dir, ignore_errors=True)
-            fetch_url(args.source, source_dir)
+    if is_url(args.source) and remote_fetch_enabled():
+        print("[pi-watch-video] fetching URL on remote browser host", file=sys.stderr)
+        fetch_url(args.source, source_dir)
     else:
         stage_source(args.source, source_dir)
 

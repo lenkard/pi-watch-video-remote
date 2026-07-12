@@ -27,14 +27,13 @@ Keep the Pi agent on `srvpri`, use a private browser sidecar for gated fetches, 
 ## Flow
 
 1. User runs `/skill:watch-video <url>` on the agent.
-2. `watch.py` stages local files directly and tries local `yt-dlp` first for URLs.
-3. If local fetch fails and `PI_WATCH_FETCH_MODE=remote_browser`, `watch.py` calls `remote_fetch.py`.
-4. `remote_fetch.py` SSHes to the browser host and runs `docker exec <container> /usr/local/bin/fetch-url <url> <job-id>`.
-5. The fetched `source.*` bundle is rsynced back to the agent work dir.
-6. If `PI_WATCH_PROCESS_MODE=remote`, `remote_process.py` rsyncs that source bundle to Kinkaid.
-7. Kinkaid runs `process_bundle.py` and writes `result/report.md` plus frames.
-8. `remote_process.py` rsyncs `result/` back to the agent work dir.
-9. Pi reads the local returned frame paths and answers.
+2. `watch.py` stages local files directly or calls `remote_fetch.py` for URLs when `PI_WATCH_FETCH_MODE=remote_browser`.
+3. `remote_fetch.py` SSHes to the browser host and runs `docker exec <container> /usr/local/bin/fetch-url <url> <job-id>`.
+4. The fetched `source.*` bundle is rsynced back to the agent work dir.
+5. If `PI_WATCH_PROCESS_MODE=remote`, `remote_process.py` rsyncs that source bundle to Kinkaid.
+6. Kinkaid runs `process_bundle.py` and writes `result/report.md` plus frames.
+7. `remote_process.py` rsyncs `result/` back to the agent work dir.
+8. Pi reads the local returned frame paths and answers.
 
 ## Deploy order
 
