@@ -46,6 +46,17 @@ Useful options:
 
 4. Read every listed frame path with Pi's `read` tool. Use parallel reads when possible. The frame list is chronological and includes timestamps. Audio-only media will have no frames.
 
+Debug log guide from `watch.py` stderr:
+
+- `fetch_mode=local|remote_browser`
+- `fetcher=yt-dlp|yt-dlp --cookies-from-browser|browser-fallback:...|local-file`
+- `process_mode=local|remote`
+- `fetch ok`, `rsync ok`, `process ok`, `transcribe ok`
+- tool versions such as `yt-dlp=...` and `ffmpeg version ...`
+- output paths such as `source_dir=...`, `transcript_path=...`, `report_path=...`
+
+If it fails, surface the exact failing step and the last stderr lines to the user instead of paraphrasing.
+
 5. Default delivery rules:
 
 - If the user asked to transcribe, deliver the generated `transcript.srt` path first.

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import shlex
 import subprocess
+import sys
 import uuid
 from pathlib import Path
 
@@ -42,10 +43,19 @@ def _rsync_shell(port: str, key: str | None) -> str:
     return shell
 
 
-def _run(command: list[str]) -> None:
-    result = subprocess.run(command, text=True)
+def _tail(text: str, lines: int = 12) -> str:
+    entries = [line for line in text.splitlines() if line.strip()]
+    return "\n".join(entries[-lines:])
+
+
+def _run(command: list[str], step: str) -> None:
+    result = subprocess.run(command, text=True, capture_output=True)
     if result.returncode != 0:
-        raise SystemExit(f"command failed ({result.returncode}): {' '.join(command)}")
+        detail = _tail(result.stderr or result.stdout)
+        message = f"{step} failed (exit {result.returncode})"
+        if detail:
+            message += f"\n{detail}"
+        raise SystemExit(message)
 
 
 def fetch_url(url: str, local_dir: Path) -> Path:
@@ -64,8 +74,9 @@ def fetch_url(url: str, local_dir: Path) -> Path:
         url=shlex.quote(url),
         job=shlex.quote(job_id),
     )
-    _run([*ssh_base, target, remote_cmd])
-    _run(["rsync", "-a", "-e", _rsync_shell(port, key), f"{target}:{host_jobs_dir.rstrip('/')}/{job_id}/", f"{local_dir}/"])
+    _run([*ssh_base, target, remote_cmd], "remote fetch")
+    _run(["rsync", "-a", "-e", _rsync_shell(port, key), f"{target}:{host_jobs_dir.rstrip('/')}/{job_id}/", f"{local_dir}/"], "fetch rsync")
+    print("[pi-watch-video] rsync ok", file=sys.stderr)
     if not keep_remote:
-        _run([*ssh_base, target, f"rm -rf {shlex.quote(host_jobs_dir.rstrip('/') + '/' + job_id)}"])
+        _run([*ssh_base, target, f"rm -rf {shlex.quote(host_jobs_dir.rstrip('/') + '/' + job_id)}"], "remote fetch cleanup")
     return local_dir

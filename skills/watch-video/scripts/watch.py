@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import argparse
+import shutil
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -15,6 +17,27 @@ from process_bundle import process_bundle  # noqa: E402
 from remote_fetch import fetch_url, remote_fetch_enabled  # noqa: E402
 from remote_process import process_bundle_remote, remote_process_enabled  # noqa: E402
 from video_frames import parse_timestamp  # noqa: E402
+
+
+def _log(message: str) -> None:
+    print(f"[pi-watch-video] {message}", file=sys.stderr)
+
+
+def _tool_version(name: str, *args: str) -> str | None:
+    if shutil.which(name) is None:
+        return None
+    result = subprocess.run([name, *args], capture_output=True, text=True)
+    if result.returncode != 0:
+        return None
+    line = next((line.strip() for line in result.stdout.splitlines() if line.strip()), "")
+    return line or None
+
+
+def _read_text(path: Path) -> str | None:
+    if not path.exists():
+        return None
+    text = path.read_text(encoding="utf-8").strip()
+    return text or None
 
 
 def main() -> int:
@@ -35,14 +58,28 @@ def main() -> int:
     max_frames = max(1, min(args.max_frames, 100))
     work = Path(args.out_dir).expanduser().resolve() if args.out_dir else Path(tempfile.mkdtemp(prefix="pi-watch-video-"))
     work.mkdir(parents=True, exist_ok=True)
-    print(f"[pi-watch-video] work dir: {work}", file=sys.stderr)
+    fetch_mode = "remote_browser" if is_url(args.source) and remote_fetch_enabled() else "local"
+    process_mode = "remote" if remote_process_enabled() else "local"
+    _log(f"work_dir={work}")
+    _log(f"fetch_mode={fetch_mode}")
+    _log(f"process_mode={process_mode}")
 
     source_dir = work / "source"
-    if is_url(args.source) and remote_fetch_enabled():
-        print("[pi-watch-video] fetching URL on remote browser host", file=sys.stderr)
-        fetch_url(args.source, source_dir)
-    else:
-        stage_source(args.source, source_dir)
+    try:
+        if is_url(args.source) and remote_fetch_enabled():
+            fetch_url(args.source, source_dir)
+        else:
+            stage_source(args.source, source_dir)
+    except SystemExit as exc:
+        raise SystemExit(f"fetch step failed: {exc}")
+
+    fetcher = _read_text(source_dir / "source.fetcher.txt") or ("local-file" if not is_url(args.source) else "yt-dlp")
+    _log(f"fetcher={fetcher}")
+    ytdlp_version = _read_text(source_dir / "source.ytdlp-version.txt") or (_tool_version("yt-dlp", "--version") if is_url(args.source) else None)
+    if ytdlp_version:
+        _log(f"yt-dlp={ytdlp_version}")
+    _log("fetched ok")
+    _log(f"source_dir={source_dir}")
 
     result_dir = work / "result"
     process_kwargs = {
@@ -55,24 +92,31 @@ def main() -> int:
         "no_whisper": args.no_whisper,
         "transcription_language": args.transcription_language,
     }
-    if remote_process_enabled():
-        print("[pi-watch-video] processing bundle on remote worker", file=sys.stderr)
-        process_bundle_remote(source_dir, result_dir, **process_kwargs)
-    else:
-        process_bundle(
-            bundle_dir=source_dir,
-            out_dir=result_dir,
-            source_label=args.source,
-            start=parse_timestamp(args.start),
-            end=parse_timestamp(args.end),
-            max_frames=max_frames,
-            resolution=args.resolution,
-            fps_override=args.fps,
-            no_whisper=args.no_whisper,
-            transcription_language=args.transcription_language,
-        )
+    try:
+        if remote_process_enabled():
+            process_bundle_remote(source_dir, result_dir, **process_kwargs)
+        else:
+            process_bundle(
+                bundle_dir=source_dir,
+                out_dir=result_dir,
+                source_label=args.source,
+                start=parse_timestamp(args.start),
+                end=parse_timestamp(args.end),
+                max_frames=max_frames,
+                resolution=args.resolution,
+                fps_override=args.fps,
+                no_whisper=args.no_whisper,
+                transcription_language=args.transcription_language,
+            )
+    except SystemExit as exc:
+        raise SystemExit(f"process step failed: {exc}")
 
     report_path = result_dir / "report.md"
+    transcript_path = result_dir / "transcript.srt"
+    if transcript_path.exists():
+        _log("transcribe ok")
+        _log(f"transcript_path={transcript_path}")
+    _log(f"report_path={report_path}")
     print(report_path.read_text(encoding="utf-8"))
     print(f"_Work dir: `{work}`. Delete it when no more follow-up questions need these files._")
     return 0

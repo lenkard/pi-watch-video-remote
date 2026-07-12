@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import shlex
 import subprocess
+import sys
 import uuid
 from pathlib import Path
 
@@ -43,10 +44,20 @@ def _rsync_shell(port: str, key: str | None) -> str:
     return shell
 
 
-def _run(command: list[str]) -> None:
-    result = subprocess.run(command, text=True)
+def _tail(text: str, lines: int = 12) -> str:
+    entries = [line for line in text.splitlines() if line.strip()]
+    return "\n".join(entries[-lines:])
+
+
+def _run(command: list[str], step: str) -> subprocess.CompletedProcess[str]:
+    result = subprocess.run(command, text=True, capture_output=True)
     if result.returncode != 0:
-        raise SystemExit(f"command failed ({result.returncode}): {' '.join(command)}")
+        detail = _tail(result.stderr or result.stdout)
+        message = f"{step} failed (exit {result.returncode})"
+        if detail:
+            message += f"\n{detail}"
+        raise SystemExit(message)
+    return result
 
 
 def process_bundle_remote(
@@ -75,8 +86,12 @@ def process_bundle_remote(
     result_dir = Path(result_dir).expanduser().resolve()
     result_dir.mkdir(parents=True, exist_ok=True)
 
-    _run([*ssh_base, target, f"mkdir -p {shlex.quote(remote_source)} {shlex.quote(remote_result)}"])
-    _run(["rsync", "-a", "-e", _rsync_shell(port, key), f"{source_dir}/", f"{target}:{remote_source}/"])
+    _run([*ssh_base, target, f"mkdir -p {shlex.quote(remote_source)} {shlex.quote(remote_result)}"], "remote process setup")
+    version = _run([*ssh_base, target, "ffmpeg -version | head -n 1"], "remote ffmpeg version")
+    if version.stdout.strip():
+        print(f"[pi-watch-video] {version.stdout.strip()}", file=sys.stderr)
+    _run(["rsync", "-a", "-e", _rsync_shell(port, key), f"{source_dir}/", f"{target}:{remote_source}/"], "process rsync up")
+    print("[pi-watch-video] rsync ok", file=sys.stderr)
 
     remote_cmd = [python, process_script, remote_source, "--out-dir", remote_result, "--max-frames", str(max_frames), "--resolution", str(resolution)]
     if source_label:
@@ -91,12 +106,14 @@ def process_bundle_remote(
         remote_cmd.append("--no-whisper")
     if transcription_language:
         remote_cmd.extend(["--transcription-language", transcription_language])
-    _run([*ssh_base, target, shlex.join(remote_cmd) + " >/dev/null"])
+    _run([*ssh_base, target, shlex.join(remote_cmd) + " >/dev/null"], "remote process")
+    print("[pi-watch-video] process ok", file=sys.stderr)
 
-    _run(["rsync", "-a", "-e", _rsync_shell(port, key), f"{target}:{remote_result}/", f"{result_dir}/"])
+    _run(["rsync", "-a", "-e", _rsync_shell(port, key), f"{target}:{remote_result}/", f"{result_dir}/"], "process rsync down")
+    print("[pi-watch-video] rsync ok", file=sys.stderr)
     report_path = result_dir / "report.md"
     if report_path.exists():
         report_path.write_text(report_path.read_text(encoding="utf-8").replace(remote_result, str(result_dir)), encoding="utf-8")
     if not keep_remote:
-        _run([*ssh_base, target, f"rm -rf {shlex.quote(remote_root)}"])
+        _run([*ssh_base, target, f"rm -rf {shlex.quote(remote_root)}"], "remote process cleanup")
     return result_dir

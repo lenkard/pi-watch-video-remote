@@ -84,6 +84,16 @@ def stage_local(source: str, directory: Path) -> dict:
     return resolve_bundle(directory)
 
 
+def _write_fetch_metadata(directory: Path, fetcher: str) -> None:
+    try:
+        (directory / "source.fetcher.txt").write_text(fetcher + "\n", encoding="utf-8")
+        version = subprocess.run(["yt-dlp", "--version"], capture_output=True, text=True)
+        if version.returncode == 0 and version.stdout.strip():
+            (directory / "source.ytdlp-version.txt").write_text(version.stdout.strip() + "\n", encoding="utf-8")
+    except Exception:
+        pass
+
+
 def download_url(url: str, directory: Path) -> dict:
     if shutil.which("yt-dlp") is None:
         raise SystemExit("yt-dlp is missing. Run: python3 scripts/setup.py --doctor")
@@ -110,6 +120,7 @@ def download_url(url: str, directory: Path) -> dict:
     result = subprocess.run(command, stdout=sys.stderr, stderr=sys.stderr)
     if result.returncode != 0:
         raise SystemExit(f"yt-dlp failed to fetch {url} (exit {result.returncode})")
+    _write_fetch_metadata(directory, "yt-dlp")
     return resolve_bundle(directory)
 
 

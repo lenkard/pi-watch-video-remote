@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import argparse
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -10,6 +12,16 @@ from media_source import resolve_bundle
 from transcript import format_lines, format_srt, in_range, read_vtt
 from video_frames import choose_fps, extract_frames, human_time, parse_timestamp, probe
 from whisper_api import transcribe
+
+
+def _tool_version(name: str, *args: str) -> str | None:
+    if shutil.which(name) is None:
+        return None
+    result = subprocess.run([name, *args], capture_output=True, text=True)
+    if result.returncode != 0:
+        return None
+    line = next((line.strip() for line in result.stdout.splitlines() if line.strip()), "")
+    return line or None
 
 
 def render_report(
@@ -81,6 +93,9 @@ def process_bundle(
 
     source = resolve_bundle(bundle_dir)
     media_path = source["video"]
+    version = _tool_version("ffmpeg", "-version")
+    if version:
+        print(f"[pi-watch-video] {version}", file=sys.stderr)
     meta = probe(media_path)
     duration = float(meta["duration"] or 0)
 
@@ -111,6 +126,7 @@ def process_bundle(
             if all_segments:
                 segments = in_range(all_segments, start, end) if focused else all_segments
                 transcript_source = f"whisper/{backend}"
+                print(f"[pi-watch-video] transcribed ok via {transcript_source}", file=sys.stderr)
         except SystemExit as exc:
             print(f"[pi-watch-video] whisper unavailable: {exc}", file=sys.stderr)
 
@@ -119,6 +135,7 @@ def process_bundle(
             segments = read_vtt(source["subtitles"])
             segments = in_range(segments, start, end) if focused else segments
             transcript_source = "captions/fallback"
+            print(f"[pi-watch-video] transcribed ok via {transcript_source}", file=sys.stderr)
         except Exception as exc:
             print(f"[pi-watch-video] captions could not be parsed: {exc}", file=sys.stderr)
 
@@ -144,6 +161,8 @@ def process_bundle(
     )
     report_path = out_dir / "report.md"
     report_path.write_text(report, encoding="utf-8")
+    if not segments:
+        print("[pi-watch-video] transcribed unavailable", file=sys.stderr)
     return report_path
 
 

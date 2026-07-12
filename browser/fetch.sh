@@ -12,6 +12,7 @@ TEMPLATE="$OUTPUT_DIR/source.%(ext)s"
 FALLBACK_SCRIPT=${BROWSER_FETCH_FALLBACK_SCRIPT:-}
 
 mkdir -p "$OUTPUT_DIR" "$PROFILE_DIR"
+yt-dlp --version > "$OUTPUT_DIR/source.ytdlp-version.txt"
 
 if [ -n "${YTDLP_BROWSER_SPEC:-}" ]; then
   COOKIE_SPEC=$YTDLP_BROWSER_SPEC
@@ -38,6 +39,7 @@ if yt-dlp \
   -o "$TEMPLATE" \
   "$URL"
 then
+  printf '%s\n' 'yt-dlp --cookies-from-browser' > "$OUTPUT_DIR/source.fetcher.txt"
   echo "$OUTPUT_DIR"
   exit 0
 fi
@@ -46,7 +48,9 @@ if [ -n "$FALLBACK_SCRIPT" ] && [ -x "$FALLBACK_SCRIPT" ]; then
   echo "[pi-watch-video] yt-dlp failed, trying browser fallback: $FALLBACK_SCRIPT" >&2
   rm -rf "$OUTPUT_DIR"
   mkdir -p "$OUTPUT_DIR"
+  yt-dlp --version > "$OUTPUT_DIR/source.ytdlp-version.txt"
   "$FALLBACK_SCRIPT" "$URL" "$OUTPUT_DIR"
+  printf 'browser-fallback:%s\n' "$FALLBACK_SCRIPT" > "$OUTPUT_DIR/source.fetcher.txt"
   echo "$OUTPUT_DIR"
   exit 0
 fi
