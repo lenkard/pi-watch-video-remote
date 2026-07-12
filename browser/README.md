@@ -20,7 +20,7 @@ Flow:
 1. Open the HTML5 browser session over the VPN.
 2. Log in once in Firefox with a dedicated account/profile.
 3. The Pi skill SSHes to this host.
-4. The host runs `yt-dlp` inside the same container, then retries with `--cookies-from-browser ...` only if direct fetch fails.
+4. The host runs `yt-dlp --cookies-from-browser ...` inside the same container, using the dedicated Firefox profile as the credential source.
 5. Raw media/subtitles are rsynced to the processing worker.
 
 ## Deploy

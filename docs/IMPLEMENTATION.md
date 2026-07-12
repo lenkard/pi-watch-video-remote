@@ -75,7 +75,7 @@ How it works:
 
 - Pi SSHes to the browser host
 - Pi runs `docker exec pi-watch-browser /usr/local/bin/fetch-url <url> <job-id>`
-- the browser container tries plain `yt-dlp` first, then retries with browser cookies only if direct fetch fails
+- the browser container runs `yt-dlp --cookies-from-browser` so the dedicated Firefox profile is the credential source for gated or bot-checked sites
 - the browser container downloads `source.*`, `source.info.json`, and subtitles into a job dir
 - Pi rsyncs that job dir back
 

@@ -22,29 +22,19 @@ else
   esac
 fi
 
-run_fetch() {
-  yt-dlp \
-    --js-runtimes quickjs \
-    --no-playlist \
-    --merge-output-format mp4 \
-    -f "bv*[height<=720]+ba/b[height<=720]/bv+ba/b" \
-    --write-info-json \
-    --write-subs \
-    --write-auto-subs \
-    --sub-langs "$SUB_LANGS" \
-    --sub-format vtt \
-    --convert-subs vtt \
-    "$@" \
-    -o "$TEMPLATE" \
-    "$URL"
-}
-
-echo "[pi-watch-video] trying yt-dlp without browser cookies" >&2
-if ! run_fetch; then
-  echo "[pi-watch-video] yt-dlp failed, retrying with browser cookies" >&2
-  rm -rf "$OUTPUT_DIR"
-  mkdir -p "$OUTPUT_DIR"
-  run_fetch --cookies-from-browser "$COOKIE_SPEC"
-fi
+yt-dlp \
+  --js-runtimes quickjs \
+  --no-playlist \
+  --merge-output-format mp4 \
+  -f "bv*[height<=720]+ba/b[height<=720]/bv+ba/b" \
+  --write-info-json \
+  --write-subs \
+  --write-auto-subs \
+  --sub-langs "$SUB_LANGS" \
+  --sub-format vtt \
+  --convert-subs vtt \
+  --cookies-from-browser "$COOKIE_SPEC" \
+  -o "$TEMPLATE" \
+  "$URL"
 
 echo "$OUTPUT_DIR"
