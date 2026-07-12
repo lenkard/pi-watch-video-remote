@@ -157,6 +157,23 @@ That keeps the browser host:
 - containerized
 - compatible with WireGuard binding
 
+## Why the browser host now uses Python `yt-dlp`
+
+The Debian `yt-dlp` package on the target host was too old for current YouTube behavior and only returned storyboard images for some videos.
+
+The practical fix is:
+
+- install `quickjs`
+- create a Python venv in the browser image
+- install `yt-dlp[default]` there
+- run it with `--js-runtimes quickjs`
+
+Why this works:
+
+- current `yt-dlp` ships the matching `yt_dlp_ejs` challenge solver package
+- QuickJS satisfies yt-dlp's current YouTube JS challenge requirement
+- the venv avoids Debian's system-package restrictions while staying simple
+
 ## Remote worker implementation
 
 Kinkaid already had Whisper running in a container.

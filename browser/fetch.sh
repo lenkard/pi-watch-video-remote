@@ -23,6 +23,7 @@ else
 fi
 
 yt-dlp \
+  --js-runtimes quickjs \
   --no-playlist \
   --merge-output-format mp4 \
   -f "bv*[height<=720]+ba/b[height<=720]/bv+ba/b" \

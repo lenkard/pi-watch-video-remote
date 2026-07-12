@@ -6,7 +6,7 @@ This container hosts:
 
 - noVNC HTML5 client
 - Firefox profile for sacrificial login
-- `yt-dlp`
+- Python `yt-dlp` in a venv, with QuickJS for current YouTube JS challenges
 - `ffmpeg`
 - `rsync`
 - optional WireGuard peer inside the container
