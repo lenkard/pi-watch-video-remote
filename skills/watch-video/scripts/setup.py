@@ -3,20 +3,21 @@
 from __future__ import annotations
 
 import json
-import os
 import platform
 import shutil
 import stat
 import sys
 from pathlib import Path
 
-NEEDED = ["ffmpeg", "ffprobe", "yt-dlp"]
+from config import config_value
+
 CONFIG_DIR = Path.home() / ".config" / "pi-watch-video"
 CONFIG_FILE = CONFIG_DIR / ".env"
-TEMPLATE = """# pi-watch-video transcription settings
-# Native captions are used first when available.
-# Audio transcription uses exactly one OpenAI-compatible endpoint.
-# Keep this file private; do not commit endpoint URLs or API keys.
+TEMPLATE = """# pi-watch-video settings
+# Public URLs can run locally.
+# For gated URLs on a remote browser host, set PI_WATCH_FETCH_MODE=remote_browser.
+# For heavy processing on a remote worker like Kinkaid, set PI_WATCH_PROCESS_MODE=remote.
+# Keep this file private; do not commit browser profiles, SSH keys, endpoint URLs, or API keys.
 
 PI_WATCH_TRANSCRIPTION_ENDPOINT=
 PI_WATCH_TRANSCRIPTION_API_KEY=
@@ -25,33 +26,90 @@ PI_WATCH_TRANSCRIPTION_LANGUAGE=auto
 PI_WATCH_TRANSCRIPTION_TIMEOUT=1800
 PI_WATCH_TRANSCRIPTION_PREFLIGHT=1
 
-# Optional yt-dlp cookies file for private/subscriber videos.
+# Optional yt-dlp cookies file for local fetches.
 PI_WATCH_YTDLP_COOKIES=
+
+# local | remote_browser
+PI_WATCH_FETCH_MODE=local
+PI_WATCH_REMOTE_FETCH_HOST=
+PI_WATCH_REMOTE_FETCH_USER=
+PI_WATCH_REMOTE_FETCH_PORT=22
+PI_WATCH_REMOTE_FETCH_SSH_KEY=
+PI_WATCH_REMOTE_FETCH_CONTAINER=
+PI_WATCH_REMOTE_FETCH_HOST_JOBS_DIR=/opt/pi-watch-video/browser/data/jobs
+PI_WATCH_REMOTE_FETCH_SCRIPT=/usr/local/bin/fetch-url
+PI_WATCH_REMOTE_FETCH_KEEP=0
+
+# local | remote
+PI_WATCH_PROCESS_MODE=local
+PI_WATCH_REMOTE_PROCESS_HOST=
+PI_WATCH_REMOTE_PROCESS_USER=
+PI_WATCH_REMOTE_PROCESS_PORT=22
+PI_WATCH_REMOTE_PROCESS_SSH_KEY=
+PI_WATCH_REMOTE_PROCESS_HOST_JOBS_DIR=/opt/pi-watch-video/jobs
+PI_WATCH_REMOTE_PROCESS_SCRIPT=/opt/pi-watch-video/skills/watch-video/scripts/process_bundle.py
+PI_WATCH_REMOTE_PROCESS_PYTHON=python3
+PI_WATCH_REMOTE_PROCESS_KEEP=0
 """
 
 
-def missing_bins() -> list[str]:
-    return [name for name in NEEDED if shutil.which(name) is None]
-
-
 def read_env(name: str) -> str | None:
-    if os.environ.get(name):
-        return os.environ[name].strip()
-    if not CONFIG_FILE.exists():
-        return None
-    for line in CONFIG_FILE.read_text(encoding="utf-8").splitlines():
-        if not line.strip() or line.lstrip().startswith("#") or "=" not in line:
-            continue
-        key, _, value = line.partition("=")
-        if key.strip() == name and value.strip():
-            return value.strip().strip('"\'')
-    return None
+    value = config_value(name)
+    return value.strip() if value else None
 
 
-def transcription_backend() -> str | None:
+def fetch_mode() -> str:
+    return (read_env("PI_WATCH_FETCH_MODE") or "local").lower()
+
+
+def process_mode() -> str:
+    return (read_env("PI_WATCH_PROCESS_MODE") or "local").lower()
+
+
+def needed_bins() -> list[str]:
+    bins: list[str] = []
+    if fetch_mode() != "remote_browser":
+        bins.append("yt-dlp")
+    if process_mode() != "remote":
+        bins.extend(["ffmpeg", "ffprobe"])
+    if fetch_mode() == "remote_browser" or process_mode() == "remote":
+        bins.extend(["ssh", "rsync"])
+    out: list[str] = []
+    for name in bins:
+        if name not in out:
+            out.append(name)
+    return out
+
+
+def missing_bins() -> list[str]:
+    return [name for name in needed_bins() if shutil.which(name) is None]
+
+
+def local_transcription_backend() -> str | None:
     if read_env("PI_WATCH_TRANSCRIPTION_ENDPOINT") or read_env("TRANSCRIPTION_ENDPOINT"):
         return "endpoint"
     return None
+
+
+def missing_remote_fetch() -> list[str]:
+    if fetch_mode() != "remote_browser":
+        return []
+    required = [
+        "PI_WATCH_REMOTE_FETCH_HOST",
+        "PI_WATCH_REMOTE_FETCH_USER",
+        "PI_WATCH_REMOTE_FETCH_CONTAINER",
+    ]
+    return [name for name in required if not read_env(name)]
+
+
+def missing_remote_process() -> list[str]:
+    if process_mode() != "remote":
+        return []
+    required = [
+        "PI_WATCH_REMOTE_PROCESS_HOST",
+        "PI_WATCH_REMOTE_PROCESS_USER",
+    ]
+    return [name for name in required if not read_env(name)]
 
 
 def ensure_config() -> bool:
@@ -68,18 +126,30 @@ def ensure_config() -> bool:
 
 def status() -> dict:
     missing = missing_bins()
-    backend = transcription_backend()
-    if not missing and backend:
-        state = "ready"
-    elif missing and not backend:
-        state = "needs_binaries_and_endpoint_config"
-    elif missing:
-        state = "needs_binaries"
-    else:
-        state = "needs_endpoint_config"
+    fetch = fetch_mode()
+    process = process_mode()
+    missing_fetch = missing_remote_fetch()
+    missing_process = missing_remote_process()
+    backend = local_transcription_backend()
+    needs_local_whisper = process != "remote"
+    transcription_ok = bool(backend) or not needs_local_whisper
+    problems: list[str] = []
+    if missing:
+        problems.append("missing_binaries")
+    if missing_fetch:
+        problems.append("remote_fetch_config")
+    if missing_process:
+        problems.append("remote_process_config")
+    if not transcription_ok:
+        problems.append("transcription_endpoint_config")
     return {
-        "status": state,
+        "status": "ready" if not problems else "needs_setup",
+        "problems": problems,
         "missing_binaries": missing,
+        "fetch_mode": fetch,
+        "process_mode": process,
+        "missing_remote_fetch": missing_fetch,
+        "missing_remote_process": missing_process,
         "transcription_backend": backend,
         "config_file": str(CONFIG_FILE),
         "platform": platform.system(),
@@ -89,29 +159,36 @@ def status() -> dict:
 def install_hints(missing: list[str]) -> list[str]:
     system = platform.system()
     hints: list[str] = []
-    needs_ffmpeg = "ffmpeg" in missing or "ffprobe" in missing
-    needs_ytdlp = "yt-dlp" in missing
+    names = set(missing)
     if system == "Darwin":
         packages = []
-        if needs_ffmpeg:
-            packages.append("ffmpeg")
-        if needs_ytdlp:
-            packages.append("yt-dlp")
-        hints.append("brew install " + " ".join(packages))
+        for name in ("ffmpeg", "yt-dlp", "rsync"):
+            if name in names:
+                packages.append(name)
+        if packages:
+            hints.append("brew install " + " ".join(packages))
+        if "ssh" in names:
+            hints.append("Install OpenSSH client if it is missing from PATH.")
     elif system == "Linux":
-        if needs_ffmpeg:
+        if "ffmpeg" in names or "ffprobe" in names:
             hints.append("sudo apt install ffmpeg    # Debian/Ubuntu")
             hints.append("sudo dnf install ffmpeg    # Fedora/RHEL family")
-        if needs_ytdlp:
+        if "yt-dlp" in names:
             hints.append("pipx install yt-dlp        # recommended")
             hints.append("python3 -m pip install --user yt-dlp")
+        if "rsync" in names:
+            hints.append("sudo apt install rsync     # Debian/Ubuntu")
+        if "ssh" in names:
+            hints.append("sudo apt install openssh-client")
     elif system == "Windows":
-        if needs_ffmpeg:
+        if "ffmpeg" in names or "ffprobe" in names:
             hints.append("winget install Gyan.FFmpeg")
-        if needs_ytdlp:
+        if "yt-dlp" in names:
             hints.append("winget install yt-dlp.yt-dlp")
+        if "rsync" in names or "ssh" in names:
+            hints.append("Install OpenSSH client and an rsync port (or use WSL).")
     else:
-        hints.append("Install ffmpeg/ffprobe and yt-dlp with your system package manager.")
+        hints.append("Install the missing binaries with your system package manager.")
     return hints
 
 
@@ -121,11 +198,7 @@ def check() -> int:
         return 0
     print(f"[pi-watch-video] setup status: {current['status']}", file=sys.stderr)
     print(f"[pi-watch-video] run: python3 {Path(__file__).resolve()} --doctor", file=sys.stderr)
-    if current["missing_binaries"] and not current["transcription_backend"]:
-        return 4
-    if current["missing_binaries"]:
-        return 2
-    return 3
+    return 1
 
 
 def doctor() -> int:
@@ -134,6 +207,8 @@ def doctor() -> int:
     print("# pi-watch-video setup doctor")
     print(f"Status: {current['status']}")
     print(f"Config: {CONFIG_FILE}" + (" (created)" if created else ""))
+    print(f"Fetch mode: {current['fetch_mode']}")
+    print(f"Process mode: {current['process_mode']}")
     if current["missing_binaries"]:
         print("\nMissing binaries: " + ", ".join(current["missing_binaries"]))
         print("Install suggestions:")
@@ -141,7 +216,20 @@ def doctor() -> int:
             print(f"  {hint}")
     else:
         print("Binaries: ok")
-    if current["transcription_backend"]:
+
+    if current["missing_remote_fetch"]:
+        print("\nRemote fetch config missing:")
+        for name in current["missing_remote_fetch"]:
+            print(f"  {name}=")
+
+    if current["missing_remote_process"]:
+        print("\nRemote process config missing:")
+        for name in current["missing_remote_process"]:
+            print(f"  {name}=")
+
+    if current["process_mode"] == "remote":
+        print("Remote processing: Kinkaid/worker handles Whisper and ffmpeg.")
+    elif current["transcription_backend"]:
         print("Transcription endpoint: ok")
     else:
         print("\nNo transcription endpoint configured. Videos with captions still work.")

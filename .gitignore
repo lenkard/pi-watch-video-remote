@@ -8,3 +8,5 @@ server/models/*.bin
 server/models/*.tmp
 server/data/
 server/Caddyfile
+browser/data/
+browser/wireguard/

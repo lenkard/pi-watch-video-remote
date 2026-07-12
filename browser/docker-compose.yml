@@ -1,0 +1,28 @@
+services:
+  browser:
+    build:
+      context: ..
+      dockerfile: browser/Dockerfile
+    container_name: ${CONTAINER_NAME:-pi-watch-browser}
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    sysctls:
+      net.ipv4.conf.all.src_valid_mark: "1"
+    volumes:
+      - ./data/profile:/data/profile
+      - ./data/jobs:/data/jobs
+      - ./wireguard:/etc/wireguard:ro
+      - /lib/modules:/lib/modules:ro
+    environment:
+      BROWSER: ${BROWSER:-firefox}
+      PROFILE_DIR: /data/profile
+      JOBS_DIR: /data/jobs
+      WEB_PORT: ${WEB_PORT:-14500}
+      WEB_BIND_IP: ${WEB_BIND_IP:-}
+      WG_AUTO_UP: ${WG_AUTO_UP:-1}
+      WG_CONF: /etc/wireguard/wg0.conf
+      YTDLP_BROWSER_SPEC: ${YTDLP_BROWSER_SPEC:-}
+    ports:
+      - "${WG_LISTEN_PORT:-51820}:51820/udp"

@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
-"""Resolve a video source into a local file plus optional subtitles."""
+"""Resolve or stage media into a local bundle directory."""
 from __future__ import annotations
 
 import json
-import os
 import shutil
 import subprocess
 import sys
 from pathlib import Path
 from urllib.parse import urlparse
 
+from config import config_value
+
 VIDEO_SUFFIXES = {".mp4", ".mov", ".mkv", ".webm", ".m4v", ".avi", ".flv", ".wmv"}
+AUDIO_SUFFIXES = {".mp3", ".m4a", ".wav", ".aac", ".ogg", ".flac", ".opus"}
+MEDIA_SUFFIXES = VIDEO_SUFFIXES | AUDIO_SUFFIXES
 SUB_LANGS = "en,en-US,en-GB,en-orig"
 
 
@@ -19,15 +22,8 @@ def is_url(value: str) -> bool:
     return parsed.scheme in {"http", "https"}
 
 
-def _first_existing(paths: list[Path]) -> Path | None:
-    for path in paths:
-        if path.exists():
-            return path
-    return None
-
-
-def _find_video(directory: Path) -> Path | None:
-    candidates = [p for p in directory.glob("source.*") if p.suffix.lower() in VIDEO_SUFFIXES]
+def _find_media(directory: Path) -> Path | None:
+    candidates = [p for p in directory.glob("source.*") if p.suffix.lower() in MEDIA_SUFFIXES]
     return sorted(candidates)[0] if candidates else None
 
 
@@ -39,33 +35,53 @@ def _find_subtitles(directory: Path) -> Path | None:
     return english[0] if english else subs[0]
 
 
-def resolve_local(source: str) -> dict:
-    path = Path(source).expanduser().resolve()
-    if not path.exists():
-        raise SystemExit(f"Video file not found: {path}")
-    if path.suffix.lower() not in VIDEO_SUFFIXES:
-        print(f"[pi-watch-video] warning: unknown video suffix {path.suffix}; continuing", file=sys.stderr)
+def _read_info(directory: Path) -> dict:
+    info_path = directory / "source.info.json"
+    if not info_path.exists():
+        return {}
+    try:
+        raw = json.loads(info_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        print(f"[pi-watch-video] could not parse info json: {exc}", file=sys.stderr)
+        return {}
+    if "title" in raw or "uploader" in raw or "duration" in raw or "source" in raw:
+        return raw
     return {
-        "video": str(path),
-        "subtitles": None,
-        "metadata": {"title": path.name, "source": str(path)},
-        "downloaded": False,
+        "title": raw.get("title"),
+        "uploader": raw.get("uploader") or raw.get("channel"),
+        "duration": raw.get("duration"),
+        "source": raw.get("webpage_url") or raw.get("original_url") or raw.get("url"),
     }
 
 
-def _config_value(name: str) -> str | None:
-    if os.environ.get(name):
-        return os.environ[name].strip()
-    config_file = Path.home() / ".config" / "pi-watch-video" / ".env"
-    if not config_file.exists():
-        return None
-    for line in config_file.read_text(encoding="utf-8").splitlines():
-        if not line.strip() or line.lstrip().startswith("#") or "=" not in line:
-            continue
-        key, _, value = line.partition("=")
-        if key.strip() == name and value.strip():
-            return value.strip().strip('"\'')
-    return None
+def resolve_bundle(directory: Path) -> dict:
+    directory = Path(directory).expanduser().resolve()
+    media = _find_media(directory)
+    if media is None:
+        raise SystemExit(f"No staged media found in {directory}")
+    metadata = _read_info(directory) or {"title": media.name, "source": str(media)}
+    subtitles = _find_subtitles(directory)
+    return {
+        "video": str(media),
+        "subtitles": str(subtitles) if subtitles else None,
+        "metadata": metadata,
+        "downloaded": True,
+    }
+
+
+def stage_local(source: str, directory: Path) -> dict:
+    path = Path(source).expanduser().resolve()
+    if not path.exists():
+        raise SystemExit(f"Video file not found: {path}")
+    directory.mkdir(parents=True, exist_ok=True)
+    suffix = path.suffix.lower() or ".bin"
+    target = directory / f"source{suffix}"
+    shutil.copy2(path, target)
+    metadata = {"title": path.name, "source": str(path)}
+    (directory / "source.info.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+    if suffix not in MEDIA_SUFFIXES:
+        print(f"[pi-watch-video] warning: unknown media suffix {path.suffix}; continuing", file=sys.stderr)
+    return resolve_bundle(directory)
 
 
 def download_url(url: str, directory: Path) -> dict:
@@ -87,42 +103,25 @@ def download_url(url: str, directory: Path) -> dict:
         "--convert-subs", "vtt",
         "-o", template,
     ]
-    cookies = _config_value("PI_WATCH_YTDLP_COOKIES") or _config_value("YTDLP_COOKIES")
+    cookies = config_value("PI_WATCH_YTDLP_COOKIES", "YTDLP_COOKIES")
     if cookies:
         command.extend(["--cookies", cookies])
     command.append(url)
     result = subprocess.run(command, stdout=sys.stderr, stderr=sys.stderr)
-    video = _find_video(directory)
-    if video is None:
-        raise SystemExit(f"yt-dlp failed to create a video in {directory} (exit {result.returncode})")
+    if result.returncode != 0:
+        raise SystemExit(f"yt-dlp failed to fetch {url} (exit {result.returncode})")
+    return resolve_bundle(directory)
 
-    info = {}
-    info_path = _first_existing([directory / "source.info.json"])
-    if info_path:
-        try:
-            raw = json.loads(info_path.read_text(encoding="utf-8"))
-            info = {
-                "title": raw.get("title"),
-                "uploader": raw.get("uploader") or raw.get("channel"),
-                "duration": raw.get("duration"),
-                "source": raw.get("webpage_url") or url,
-            }
-        except Exception as exc:  # metadata is useful but not required
-            print(f"[pi-watch-video] could not parse info json: {exc}", file=sys.stderr)
 
-    return {
-        "video": str(video),
-        "subtitles": str(_find_subtitles(directory)) if _find_subtitles(directory) else None,
-        "metadata": info or {"source": url},
-        "downloaded": True,
-    }
+def stage_source(source: str, directory: Path) -> dict:
+    return download_url(source, directory) if is_url(source) else stage_local(source, directory)
 
 
 def resolve_source(source: str, directory: Path) -> dict:
-    return download_url(source, directory) if is_url(source) else resolve_local(source)
+    return stage_source(source, directory)
 
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
         raise SystemExit("usage: media_source.py <url-or-file> <out-dir>")
-    print(json.dumps(resolve_source(sys.argv[1], Path(sys.argv[2])), indent=2))
+    print(json.dumps(stage_source(sys.argv[1], Path(sys.argv[2])), indent=2))
