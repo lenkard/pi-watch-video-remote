@@ -63,7 +63,7 @@ Cite timestamps when useful. If the video is long and the first pass is sparse, 
 
 ## Remote browser fetch mode
 
-Set this when the agent runs in a headless container and cannot reuse a browser session:
+Set this when the agent runs in a headless container and cannot reuse a browser session. URL fetches still try local `yt-dlp` first, then fall back to the browser host:
 
 ```env
 PI_WATCH_FETCH_MODE=remote_browser

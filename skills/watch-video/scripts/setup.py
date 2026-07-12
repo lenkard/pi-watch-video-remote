@@ -14,8 +14,8 @@ from config import config_value
 CONFIG_DIR = Path.home() / ".config" / "pi-watch-video"
 CONFIG_FILE = CONFIG_DIR / ".env"
 TEMPLATE = """# pi-watch-video settings
-# Public URLs can run locally.
-# For gated URLs on a remote browser host, set PI_WATCH_FETCH_MODE=remote_browser.
+# Public URLs try local yt-dlp first.
+# For gated URLs or local yt-dlp failures, set PI_WATCH_FETCH_MODE=remote_browser.
 # For heavy processing on a remote worker like Kinkaid, set PI_WATCH_PROCESS_MODE=remote.
 # Keep this file private; do not commit browser profiles, SSH keys, endpoint URLs, or API keys.
 
