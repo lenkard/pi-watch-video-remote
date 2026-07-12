@@ -1,6 +1,6 @@
 {
   "name": "pi-watch-video",
-  "version": "0.3.10",
+  "version": "0.3.11",
   "description": "Pi package that lets Pi watch videos by extracting frames and transcripts from URLs or local files.",
   "keywords": ["pi-package", "pi", "video", "skills", "yt-dlp", "ffmpeg", "whisper"],
   "license": "MIT",

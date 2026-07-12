@@ -149,7 +149,7 @@ Security rules:
 
 - Do not commit `.env` files.
 - Do not commit browser profiles, cookies, VPN configs, SSH keys, endpoint URLs, or API keys.
-- Use WireGuard/private networking for the browser host.
+- Use private VPN networking for the browser host.
 - Use a dedicated browser account/profile for gated sites.
 
 ## Browser host deployment
@@ -160,14 +160,14 @@ Quick start:
 cd browser
 cp .env.example .env
 mkdir -p data/profile data/jobs wireguard
-# copy your private wg0.conf to browser/wireguard/wg0.conf if the container owns WireGuard
+# copy your private client wg0.conf to browser/wireguard/wg0.conf if the container owns the VPN client
 docker compose up -d --build
 ```
 
-Then open:
+This container publishes no host ports. Open it over the container VPN IP:
 
 ```text
-http://<wireguard-ip>:14500/vnc.html
+http://<vpn-ip>:14500/vnc.html
 ```
 
 Log in once in Firefox. The fetch host keeps that profile and the skill reuses it through `yt-dlp --cookies-from-browser`.

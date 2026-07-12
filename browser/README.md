@@ -9,7 +9,7 @@ This container hosts:
 - Python `yt-dlp` in a venv, with QuickJS for current YouTube JS challenges and `curl_cffi` impersonation support
 - `ffmpeg`
 - `rsync`
-- optional WireGuard peer inside the container
+- optional VPN client inside the container
 
 ## What it is for
 
@@ -32,17 +32,19 @@ Flow:
 cd /opt/pi-watch-video/browser
 cp .env.example .env
 mkdir -p data/profile data/jobs wireguard
-# copy your private wg0.conf into browser/wireguard/wg0.conf
+# copy your private client wg0.conf into browser/wireguard/wg0.conf
 # do not commit it
 docker compose up -d --build
 ```
 
+This compose file publishes no host ports. The container is expected to join your VPN as a client and use outbound internet only.
+
 ## Open the browser
 
-Point another VPN peer at:
+Point another VPN peer at the container VPN address:
 
 ```text
-http://<wireguard-ip>:14500/vnc.html
+http://<vpn-ip>:14500/vnc.html
 ```
 
 The container starts Firefox automatically. Log in once, then keep the profile volume.
@@ -70,6 +72,6 @@ That command writes a job directory containing:
 ## Security
 
 - Use a dedicated browser account/profile.
-- Keep the service on WireGuard only.
+- Publish no host ports; reach it only over the VPN.
 - Do not commit `wireguard/wg0.conf`.
 - Do not reuse your personal daily browser profile.

@@ -154,10 +154,10 @@ So the repo now uses the shortest working HTML5 browser path on trixie:
 
 That keeps the browser host:
 
-- HTML5-accessible
+- HTML5-accessible over its VPN IP
 - browser-profile-persistent
 - containerized
-- compatible with WireGuard binding
+- with no host ports published
 
 ## Why the browser host now uses Python `yt-dlp`
 

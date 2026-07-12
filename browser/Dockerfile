@@ -20,5 +20,4 @@ ENV PROFILE_DIR=/data/profile \
     DISPLAY=:100
 
 VOLUME ["/data/profile", "/data/jobs", "/etc/wireguard"]
-EXPOSE 14500 51820/udp
 CMD ["/usr/local/bin/browser-entrypoint"]

@@ -16,7 +16,7 @@ Keep the Pi agent on `srvpri`, use a private browser sidecar for gated fetches, 
 - HTML5 browser sidecar
 - Firefox profile on a persistent volume
 - `yt-dlp` fetches via `--cookies-from-browser`
-- WireGuard peer in the container
+- VPN client in the container, with no host ports published
 
 ### `kinkaid`
 - this repo checked out at `/opt/pi-watch-video`
