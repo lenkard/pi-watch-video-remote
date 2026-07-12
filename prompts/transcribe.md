@@ -9,6 +9,8 @@ $ARGUMENTS
 
 Default behavior:
 - produce `transcript.srt` as the primary deliverable
+- transcribe from media audio with Whisper by default
+- use captions only as fallback
 - also write `transcript.txt`
 - skip visual analysis unless the user explicitly asked for it
 - answer any extra question the user included

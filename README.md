@@ -12,8 +12,8 @@ This project is inspired by Brad Automates' [`claude-video`](https://github.com/
 2. Optionally fetch a gated URL on a remote browser host that keeps a sacrificial Firefox profile.
 3. Optionally offload heavy processing to a remote worker like Kinkaid.
 4. Extract a duration-aware set of JPEG frames with `ffmpeg` when video is present.
-5. Pull native captions when available.
-6. If captions are unavailable, transcribe audio with exactly one configured OpenAI-compatible endpoint.
+5. Transcribe the media audio with exactly one configured OpenAI-compatible endpoint.
+6. Fall back to captions only if Whisper is unavailable or returns nothing.
 7. Ask Pi to read the generated frames and answer using visuals plus transcript.
 
 There are no hosted fallback providers in the skill. Configure your own local/private endpoint once, and the skill uses only that endpoint for audio transcription.

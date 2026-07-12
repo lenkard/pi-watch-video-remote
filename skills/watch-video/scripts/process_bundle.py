@@ -104,15 +104,8 @@ def process_bundle(
 
     transcript_source = None
     segments: list[dict] = []
-    if source.get("subtitles"):
-        try:
-            segments = read_vtt(source["subtitles"])
-            segments = in_range(segments, start, end) if focused else segments
-            transcript_source = "captions"
-        except Exception as exc:
-            print(f"[pi-watch-video] captions could not be parsed: {exc}", file=sys.stderr)
 
-    if not segments and not no_whisper:
+    if not no_whisper:
         try:
             all_segments, backend = transcribe(media_path, out_dir / "audio.mp3", None, transcription_language, start, end)
             if all_segments:
@@ -120,6 +113,14 @@ def process_bundle(
                 transcript_source = f"whisper/{backend}"
         except SystemExit as exc:
             print(f"[pi-watch-video] whisper unavailable: {exc}", file=sys.stderr)
+
+    if not segments and source.get("subtitles"):
+        try:
+            segments = read_vtt(source["subtitles"])
+            segments = in_range(segments, start, end) if focused else segments
+            transcript_source = "captions/fallback"
+        except Exception as exc:
+            print(f"[pi-watch-video] captions could not be parsed: {exc}", file=sys.stderr)
 
     if segments:
         (out_dir / "transcript.txt").write_text(format_lines(segments) + "\n", encoding="utf-8")

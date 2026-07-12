@@ -9,7 +9,7 @@ compatibility: Requires Python 3 plus local ffmpeg/ffprobe and yt-dlp for local 
 
 This skill turns media into inputs Pi can inspect: sampled JPEG frames plus a timestamped transcript. It supports public URLs handled by `yt-dlp`, local media files, and remote browser-backed fetching for gated URLs.
 
-Native captions are preferred when available. If captions are unavailable, transcription uses exactly one configured OpenAI-compatible endpoint unless heavy processing has been delegated to a remote worker.
+Whisper transcription from the media is the default. Captions are only a fallback when Whisper is unavailable or returns nothing.
 
 ## Workflow
 
