@@ -48,7 +48,7 @@ Everything runs where the Pi agent runs:
 Use this when the Pi agent runs in a headless container and cannot reuse a local browser profile.
 
 - HTML5 Firefox sidecar keeps a dedicated logged-in profile
-- `yt-dlp --cookies-from-browser` runs inside that same browser container
+- `yt-dlp` runs inside that same browser container, with browser cookies only as fallback
 - the skill rsyncs the fetched `source.*` bundle back to the agent or onward to a worker
 
 See [`browser/README.md`](browser/README.md), [`docs/REMOTE_DEPLOY.md`](docs/REMOTE_DEPLOY.md), and [`docs/IMPLEMENTATION.md`](docs/IMPLEMENTATION.md).
