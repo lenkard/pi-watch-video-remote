@@ -165,13 +165,14 @@ The practical fix is:
 
 - install `quickjs`
 - create a Python venv in the browser image
-- install `yt-dlp[default]` there
+- install `yt-dlp[default,curl-cffi]` there
 - run it with `--js-runtimes quickjs`
 
 Why this works:
 
 - current `yt-dlp` ships the matching `yt_dlp_ejs` challenge solver package
 - QuickJS satisfies yt-dlp's current YouTube JS challenge requirement
+- `curl_cffi` gives yt-dlp its browser-style impersonation transport when extractors request it
 - the venv avoids Debian's system-package restrictions while staying simple
 
 ## Remote worker implementation

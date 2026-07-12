@@ -4,7 +4,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates dbus-x11 ffmpeg firefox-esr iproute2 novnc openssh-client python3 python3-venv quickjs rsync websockify wireguard-tools x11vnc xauth xterm xvfb \
   && python3 -m venv /opt/yt-dlp \
   && /opt/yt-dlp/bin/pip install --no-cache-dir -U pip \
-  && /opt/yt-dlp/bin/pip install --no-cache-dir -U 'yt-dlp[default]' \
+  && /opt/yt-dlp/bin/pip install --no-cache-dir -U 'yt-dlp[default,curl-cffi]' \
   && ln -sf /opt/yt-dlp/bin/yt-dlp /usr/local/bin/yt-dlp \
   && rm -rf /var/lib/apt/lists/*
 
