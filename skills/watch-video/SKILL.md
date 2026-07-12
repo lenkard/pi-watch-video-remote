@@ -46,7 +46,13 @@ Useful options:
 
 4. Read every listed frame path with Pi's `read` tool. Use parallel reads when possible. The frame list is chronological and includes timestamps. Audio-only media will have no frames.
 
-5. Answer the user's question using available evidence:
+5. Default delivery rules:
+
+- If the user asked to transcribe, deliver the generated `transcript.srt` path first.
+- Only inspect/read frames when the user asked for visual analysis or a video question.
+- Use `transcript.txt` or the report only as helpers.
+
+If the user asked a question beyond transcription, answer it using:
 
 - Frames: visual content on screen.
 - Transcript: spoken content or captions.

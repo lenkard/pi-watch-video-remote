@@ -202,7 +202,7 @@ The package also includes lightweight prompt aliases/helpers:
 /transcribe https://youtu.be/example summarize the spoken content
 ```
 
-The skill will fetch/stage the media, generate a local `report.md`, and Pi should read the listed frame images before answering.
+The skill will fetch/stage the media, generate local `transcript.srt`, `transcript.txt`, and `report.md`, and Pi should read listed frame images only when visual analysis is needed.
 
 ## Script usage
 

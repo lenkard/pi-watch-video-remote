@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 from media_source import resolve_bundle
-from transcript import format_lines, in_range, read_vtt
+from transcript import format_lines, format_srt, in_range, read_vtt
 from video_frames import choose_fps, extract_frames, human_time, parse_timestamp, probe
 from whisper_api import transcribe
 
@@ -53,6 +53,8 @@ def render_report(
     lines.extend(["", "## Transcript", ""])
     if segments:
         lines.append(f"_Source: {transcript_source}._")
+        lines.append("")
+        lines.append(f"Files: `{out_dir / 'transcript.srt'}` and `{out_dir / 'transcript.txt'}`")
         lines.extend(["", "```", format_lines(segments), "```"])
     else:
         lines.append("_No transcript available. Use the frames only, or configure Whisper with `python3 scripts/setup.py --doctor`._")
@@ -118,6 +120,10 @@ def process_bundle(
                 transcript_source = f"whisper/{backend}"
         except SystemExit as exc:
             print(f"[pi-watch-video] whisper unavailable: {exc}", file=sys.stderr)
+
+    if segments:
+        (out_dir / "transcript.txt").write_text(format_lines(segments) + "\n", encoding="utf-8")
+        (out_dir / "transcript.srt").write_text(format_srt(segments), encoding="utf-8")
 
     report = render_report(
         source=source,

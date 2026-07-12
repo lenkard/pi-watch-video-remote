@@ -70,6 +70,26 @@ def format_lines(items: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def _srt_time(value: float) -> str:
+    total_ms = max(0, int(round(value * 1000)))
+    hours, rem = divmod(total_ms, 3_600_000)
+    minutes, rem = divmod(rem, 60_000)
+    seconds, ms = divmod(rem, 1000)
+    return f"{hours:02d}:{minutes:02d}:{seconds:02d},{ms:03d}"
+
+
+def format_srt(items: list[dict]) -> str:
+    blocks = []
+    for index, item in enumerate(items, 1):
+        start = _srt_time(float(item.get("start") or 0.0))
+        end_value = float(item.get("end") or item.get("start") or 0.0)
+        if end_value <= float(item.get("start") or 0.0):
+            end_value = float(item.get("start") or 0.0) + 1.0
+        end = _srt_time(end_value)
+        blocks.append(f"{index}\n{start} --> {end}\n{item['text']}")
+    return "\n\n".join(blocks) + ("\n" if blocks else "")
+
+
 if __name__ == "__main__":
     if len(sys.argv) != 2:
         raise SystemExit("usage: transcript.py <captions.vtt>")
